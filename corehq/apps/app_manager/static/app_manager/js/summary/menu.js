@@ -1,3 +1,4 @@
+/* TODO: file-level comment */
 hqDefine('app_manager/js/summary/menu', function() {
     var assertProperties = hqImport("hqwebapp/js/assert_properties").assert;
 
