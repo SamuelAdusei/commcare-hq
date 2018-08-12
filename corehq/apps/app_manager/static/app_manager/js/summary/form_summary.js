@@ -9,9 +9,7 @@ hqDefine('app_manager/js/summary/form_summary', function() {
         var self = {};
         self.lang = options.lang;
         self.langs = options.langs;
-        self.modules = _.map(options.modules, function(module) {
-            return moduleModel(module, self.lang, self.langs);
-        });
+        self.modules = _.map(options.modules, moduleModel);
 
         self.selectedItemId = ko.observable('');      // blank indicates "View All"
         self.selectedItemId.subscribe(function(selectedId) {
@@ -55,12 +53,12 @@ hqDefine('app_manager/js/summary/form_summary', function() {
         var match = function(needle, haystack) {
             return !needle || haystack.toLowerCase().indexOf(needle.toLowerCase()) !== -1;
         };
-        // TODO: take id/language into account (prod searches across id + all languages)
         self.query.subscribe(_.debounce(function(newValue) {
             _.each(self.modules, function(module) {
-                var moduleIsVisible = match(newValue, module.name);
+                var moduleIsVisible = match(newValue, self.translate(module.name));
                 _.each(module.forms, function(form) {
-                    var formIsVisible = match(newValue, form.name);
+                    var formIsVisible = match(newValue, self.translate(form.name));
+                    // TODO: take both id and label into account for questions and options
                     _.each(form.questions, function(question) {
                         var questionIsVisible = match(newValue, question.value);
                         questionIsVisible = questionIsVisible || _.find(question.options, function(option) {
@@ -76,18 +74,36 @@ hqDefine('app_manager/js/summary/form_summary', function() {
             });
         }, 200));
 
+        self.showLabels = ko.observable(true);
+        self.showIds = ko.computed(function() {
+            return !self.showLabels();
+        });
+        self.turnLabelsOn = function() {
+            self.showLabels(true);
+        };
+        self.turnIdsOn = function() {
+            self.showLabels(false);
+        };
+
+        self.translate = function(translations) {
+            return utils.translateName(translations, self.lang, self.langs);
+        };
+        self.translateQuestion = function(question) {
+            if (question.translations) {
+                return utils.translateName(question.translations, self.lang, self.langs);
+            }
+            return question.label;  // hidden values don't have translations
+        };
+
         return self;
     };
 
-    var moduleModel = function(module, lang, langs) {
+    var moduleModel = function(module) {
         var self = _.extend({}, module);
 
-        self.name = utils.translateName(self.name, lang, langs);
         self.url = hqImport("hqwebapp/js/initial_page_data").reverse("view_module", self.id);
         self.icon = utils.moduleIcon(self) + ' hq-icon';
-        self.forms = _.map(self.forms, function(form) {
-            return formModel(form, lang, langs);
-        });
+        self.forms = _.map(self.forms, formModel);
 
         self.isSelected = ko.observable(true);
 
@@ -99,10 +115,9 @@ hqDefine('app_manager/js/summary/form_summary', function() {
         return self;
     };
 
-    var formModel = function(form, lang, langs) {
+    var formModel = function(form) {
         var self = _.extend({}, form);
 
-        self.name = utils.translateName(self.name, lang, langs);
         self.url = hqImport("hqwebapp/js/initial_page_data").reverse("form_source", self.id);
         self.icon = utils.formIcon(self) + ' hq-icon';
         self.questions = _.map(self.questions, function(question) {
